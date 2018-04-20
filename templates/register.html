@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content1 %}
+
+<form method = 'POST'>
+	{{ form.hidden_tag() }}
+	{{ form.email.label }}{{ form.email()}}<br>
+	{{ form.email2.label }}{{ form.email2() }}
+	{{ form.password.label }}{{ form.password() }}
+	{{ form.password2.label }}{{ form.password2() }}
+	{{ form.submit() }}
+</form>
+<a href= "{{ url_for('index') }}"Home>
+
+{% endblock %}

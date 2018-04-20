@@ -1,0 +1,11 @@
+<h1>My collections</h1>
+{% extends 'base.html' %}
+
+{% block content1 %}
+
+{% for c in collections %}
+    <li><u><a href="http://localhost:5000/collection/{{ c.type_of_list }}">{{ c.type_of_list }}</a></u></li>
+{% endfor %}
+
+
+{% endblock %}

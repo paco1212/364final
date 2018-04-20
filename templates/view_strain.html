@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+
+{% block content1 %}
+
+	<p><strong>Name: </strong> {{ strain.name }}<br><br>
+		<strong>Race:</strong> {{ strain.race }}<br><br>
+		<strong>Description: </strong> {{ strain.description }}<br><br>
+		<strong>Positive Effects:</strong> {% for p in pos %} {{ p.name }}, {% endfor %}<br><br>
+		<strong>Negative Effects:</strong> {% if neg %} {% for n in neg %} {{ n.name }}, {% endfor %} {% else %}None {% endif %}<br><br>
+		<strong>Medical Effects:</strong> {% for m in md %} {{ m.name }}, {% endfor %}<br><br>
+	</p>
+{% endblock %} 

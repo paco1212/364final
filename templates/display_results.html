@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+
+{% block content1 %}
+{% if results %}
+	
+	{% for key in results %}
+		<ul>
+		<li>
+			<strong>Strain Name:</strong> {{ key.name }}<br>
+			<strong>Strain Race:</strong> {{ key.race }}<br>
+			<strong>Description:</strong> {{ key.description }}<br>
+			<strong>Flavors:</strong> {% for f in key.flavors%} {{ f.flavor }} {% endfor %}<br>
+			
+		</li>
+		</ul>	
+	{% endfor %}
+
+{% endif %}
+
+<form method = "POST">
+	{{ form.hidden_tag() }}
+	{{ form.list_to_save.label }}{{ form.list_to_save() }}
+	{{ form.options.label }}{{ form.options() }}
+
+	{{ form.submit.label }}{{ form.submit() }}
+</form>
+
+{% endblock %}

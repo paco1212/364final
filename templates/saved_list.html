@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+
+{% block content1 %}
+
+	{% if lists %}
+		{% for li in lists %}
+			<a href = "{{ url_for('see_strain', name= li.name) }}">{{ li.name }} </a> 
+
+		{% endfor %}
+	{% endif %}
+{% endblock %}
