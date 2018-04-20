@@ -3,27 +3,26 @@
 
 <title>My Medine</title>
 
+
 	{% if current_user.is_authenticated %}
 		<a href="{{ url_for('logout') }}"><strong>Sign Out</strong> {{current_user.email}}</a>
 		<br>
-		<a href="{{ url_for('index') }}"><strong>Home</strong> </a>
+		<a href="{{ url_for('index') }}"><strong>Search for Marijuana Strains</strong> </a>
 		<br>
-		<a href="{{ url_for('see_collections') }}"><strong>My Saved Marijuana Strains</strong> </a>
+		<a href="{{ url_for('see_collections') }}"><strong>Saved Marijuana Strains</strong> </a>
+		
 		
 	{% else %}
 		<a href="{{ url_for('login') }}">Sign In </a><br>
 		<a href="{{ url_for('register') }}">Register </a>
 	{% endif %}
-
-
-<br>
-<br>
-
 <div>
 	{% for message in get_flashed_messages() %}
 		*********** {{ message }} **************
 	{% endfor %}
 </div>
+
+
 <br>
 {% block content1 %}
 {% endblock %}

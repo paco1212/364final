@@ -10,7 +10,10 @@
 			<strong>Strain Name:</strong> {{ key.name }}<br>
 			<strong>Strain Race:</strong> {{ key.race }}<br>
 			<strong>Description:</strong> {{ key.description }}<br>
-			<strong>Flavors:</strong> {% for f in key.flavors%} {{ f.flavor }} {% endfor %}<br>
+			<strong>Flavors:</strong> {% for f in key.flavors %} {{ f.flavor }} {% endfor %}<br>
+			<strong>Positive Effects:</strong> {% for e in strains[key.name]['pos'] %}  {{ e }} {% endfor %}<br>
+			<strong>Negative Effects:</strong> {% for e in strains[key.name]['ng'] %}  {{ e }} {% endfor %}<br>
+			<strong>medical Effects:</strong> {% for e in strains[key.name]['md'] %}  {{ e }} {% endfor %}<br>
 			
 		</li>
 		</ul>	

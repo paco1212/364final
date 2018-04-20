@@ -2,9 +2,10 @@
 # Francisco "Paco" Gallardo
 import json
 import requests
+from mj_api import API_KEY
 
 
-API_KEY = None
+
 if not API_KEY:
 	API_KEY = input("Please apply for an api key at strainapi.evanbusse.com and paste it here")
 SEARCH_BASEURL = 'http://strainapi.evanbusse.com/{}/strains/'.format(API_KEY)

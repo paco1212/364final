@@ -10,4 +10,9 @@
 		<strong>Negative Effects:</strong> {% if neg %} {% for n in neg %} {{ n.name }}, {% endfor %} {% else %}None {% endif %}<br><br>
 		<strong>Medical Effects:</strong> {% for m in md %} {{ m.name }}, {% endfor %}<br><br>
 	</p>
+	<form method = 'GET' action = "{{ url_for('update_strain_rating', name =strain.name) }}">
+		{{ form.hidden_tag() }}
+		{{ form.options.label }} {{ form.options() }}
+		{{ form.submit() }}
+	<form>
 {% endblock %} 

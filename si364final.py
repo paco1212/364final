@@ -39,9 +39,10 @@ app.debug = True
 app.use_reloader = True
 app.static_folder = 'static'
 app.config['SECRET_KEY'] = 'hardtoguessstring'
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://localhost/FRGAsi364final"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get('DATABASE_URL') or "postgresql://localhost/FRGAsi364final"
 app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['HEROKU_ON'] = os.environ.get('HEROKU')
 
 # App addition setups
 manager = Manager(app)
@@ -63,9 +64,6 @@ def make_shell_context():
 # Add function use to manager
 manager.add_command("shell", Shell(make_context=make_shell_context))
 
-########### API KEY & BASEURL ############
-# API_KEY = 'LbOBusJ'
-# SEARCH_BASEURL = 'http://strainapi.evanbusse.com/{}/strains/'.format(API_KEY)
 
 # Models
 
@@ -133,6 +131,7 @@ class Strain(db.Model):
 	description = db.Column(db.Text)
 	race = db.Column(db.String(64))
 	strain_id = db.Column(db.Integer)
+	ranking = db.Column(db.Integer)
 
 	flavors = db.relationship('Flavors', secondary = strain_flavors, backref = db.backref('strains', lazy = 'dynamic'), lazy = 'dynamic')
 	effects = db.relationship('Effects', secondary = strain_effects, backref = db.backref('strains', lazy = 'dynamic'), lazy = 'dynamic')
@@ -159,7 +158,7 @@ class AlreadyTried(db.Model):
 	user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 	type_of_list = db.Column(db.String(28))
 
-	strains = db.relationship('Strain', secondary = strains_tried, backref = db.backref('user_lists', lazy = 'dynamic'), lazy = 'dynamic')
+	strains = db.relationship('Strain',secondary = strains_tried, backref = db.backref('user_lists', lazy = 'dynamic'), lazy = 'dynamic')
 
 	def __repr__(self):
 		return "ID: %d | User_id: %d | Type: %s" % (self.id, self.user_id, self.type_of_list)
@@ -183,8 +182,8 @@ class enterSearchQuery(FlaskForm):
 class Register(FlaskForm):
 	email = EmailField('Enter your email', validators = [Email('Email was not valid'), Required()])
 	email2 = EmailField('Please renter your email', validators = [Email('Emails must match'), Required(), EqualTo('email',message="Emails must match")])
-	password = StringField('Please enter your password', validators = [Required()])
-	password2 = StringField('Please renter your password', validators = [Required(), EqualTo('password2',message="Passwords must match")])
+	password = PasswordField('Please enter your password', validators = [Required()])
+	password2 = PasswordField('Please renter your password', validators = [Required(), EqualTo('password',message="Passwords must match")])
 	submit = SubmitField('Register')
 
 	#Additional checking methods for the form
@@ -200,9 +199,18 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Log In')
 
 class AddToMyList(FlaskForm):
-	list_to_save = RadioField('Add to wish list or already tried list', choices = [('wishlist', 'wishlist'), ('already_tried', 'Tried')], validators = [Required()])
+	list_to_save = RadioField('Add to wish list or already tried list', choices = [('Wishlist', 'Wishlist'), ('Tried', 'Tried')], validators = [Required()])
 	options = SelectMultipleField('Add strains to your saved list', choices = [], validators = [Required()])
 	submit = SubmitField('Add to list')
+
+
+class RateStrain(FlaskForm):
+	options = RadioField('Please rate the strain',
+						choices = [("1", "1"), ("2","2"),("3","3"),("4","4"),("5","5")], validators = [Required()])
+	submit = SubmitField('Submit Ranking')
+
+class DeleteForm(FlaskForm):
+	submit = SubmitField('Delete')
 
 ############# GET OR CREATE FUNCTIONS #################
 def get_or_create_effect(effect_type, name):
@@ -273,6 +281,7 @@ def get_or_create_search(s_type, user_search):
 
 	elif s_type == 'effect':
 		results = search_by_effect(user_search)
+
 	if results:
 		for key in results:
 			strain = get_or_create_strain(key, 
@@ -287,14 +296,10 @@ def get_or_create_search(s_type, user_search):
 			search.results.append(strain)
 	else:
 		strain = None
-
-
 	
 	db.session.add(search)
 	db.session.commit()
 	return search 
-
-
 
 
 
@@ -315,6 +320,10 @@ def index():
 		query = form.term.data
 		results = get_or_create_search(user_choice, query)
 		return redirect(url_for('search_results', type = user_choice, search = query))
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
 	return render_template('index.html', form = form)
 
 	pass
@@ -331,6 +340,26 @@ def search_results(type,search):
 	search = PastSearches.query.filter_by(term = search, q_type = type).first()
 	strain_names = [(str(s.id),s.name) for s in search.results.all()]
 	form.options.choices = strain_names
+	items = search.results.all()
+
+	strains = [s.effects.all() for s in items]
+	st = {}
+	for strain in items:
+		st[strain.name] = {}
+		pos = []
+		ng = []
+		md = []
+		for e in strain.effects.all():
+			if e.effect_type == 'Positive':
+				pos.append(e.name)
+			if e.effect_type == 'Negative':
+				ng.append(e.name)
+			if e.effect_type == 'Medical':
+				md.append(e.name)
+		st[strain.name]['pos'] = pos
+		st[strain.name]['ng'] = ng
+		st[strain.name]['md'] = md
+
 	if form.validate_on_submit():
 		type_list = form.list_to_save.data
 		options = form.options.data
@@ -338,6 +367,7 @@ def search_results(type,search):
 		strains = [get_strain_by_id(item) for item in options]
 		
 		u_list = AlreadyTried.query.filter_by(user_id = current_user.id, type_of_list = type_list).first()
+
 		if not u_list:
 			u_list = AlreadyTried(user_id = current_user.id, type_of_list = type_list)
 			u_list.strains = (strains)
@@ -347,9 +377,14 @@ def search_results(type,search):
 			
 			u_list.strains.extend(strains)
 			db.session.commit()
-		return redirect(url_for('see_collections'))
-
-	return render_template('display_results.html', results = search.results.all(), form = form)
+			flash('Added strain to your %s list' % type_list)
+		
+		return redirect(url_for('collection', type_list = type_list))
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
+	return render_template('display_results.html', results = search.results.all(), form = form, strains = st)
 	# This plage will receive two variables from the index page that the user entered through the form if it was validated.
 	# Then it will call the search_strains helper function which will make a request to an API to find the strains that match that the user is searching for
 	# This function will take in the two arguments that were passed from the index page
@@ -361,71 +396,96 @@ def search_results(type,search):
 def see_collections():
 	user = current_user
 	user_collection = User.query.filter_by(id = user.id).first().strain_lists
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
 	return render_template('collections.html', collections = user_collection)
 
 
 @app.route('/collection/<type_list>', methods = ['GET', 'POST'])
 @login_required
 def collection(type_list):
+	
+	form = DeleteForm()
+
+
 	user_lists = AlreadyTried.query.filter_by(user_id = current_user.id, type_of_list = type_list).first()
 	lists = user_lists.strains.all()
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
 
-	return render_template('collection.html', lists = lists)
-	# form_entry = AddToMyList(request.form)
-	# sel = form_entry['list_to_save'].data
-	# u_list = AlreadyTried.query.filter_by(user_id = current_user.id, type_of_list = sel).first()
-
-	# if not u_list:
-	# 	u_list = AlreadyTried(user_id = current_user.id, type_of_list = sel)
-	# 	user_selection = form_entry['options'].data
-	# 	# print(type(form_entry['options']))
-	# 	# for opt in user_selection:
-	# 	# u_list.strains.append(user_selection)
-	# 	db.session.add(u_list)
-	# 	db.session.commit()
-	# else:
-	# 	u_list = AlreadyTried.query.filter_by(user_id = current_user.id).first()
-	# 	print(request.form['options'])
-		
-
-	# user_selection = form_entry['options'].data
-	# for opt in user_selection:
-	# 	print(opt)
-		# print(current_user.tried)
-		# current_user.tried.append(opt)
-	# db.session.commit()
-	# for item in data.get('options'):
-	# 	print(item)
-	# print(data.get('options'))
-	# form = AddToMyList()
-	# if form.validate_on_submit():
-	# 	print(form.options.data)
-	# return"no"
+	return render_template('collection.html', list= type_list, lists = lists, form = form)
+	
 	# This page will display links to all of the strains that the user decided to save to their desired list of Canabis Strains
 
 
-@app.route('/strain/<name>', methods = ['GET', 'POST'])
+@app.route('/collection/<saved_list>/<name>', methods = ['GET', 'POST'])
 @login_required
-def see_strain(name):
+def see_strain(saved_list,name):
+	
 	obj = Strain.query.filter_by(name = name).first()
+	list_type = None
 	f = obj.flavors.all()
 	e = obj.effects.all()
 	pos = list(filter(lambda x:x.effect_type == 'Positive', e))
 	neg = list(filter(lambda x:x.effect_type == 'Negative', e))
 	md = list(filter(lambda x:x.effect_type == 'Medical', e))
 
-	return render_template('view_strain.html', strain = obj, pos = pos, neg = neg, md = md)
+	form = RateStrain()
+	
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
+	return render_template('view_strain.html', strain = obj, pos = pos, neg = neg, md = md, form = form)
 	# This page will display the details of the specific strain the user clicked on from the /savedstrains route
 	# The page will also render a template that allows the user to delete the saved strain if they would like to
 	# If the template is validated, the user will be redirected to the /savedstrains route
 	# If the form is not validated, then the page will reload and display the Cannabis strain's information
+@app.route('/strain/<name>/update/', methods = ['GET', 'POST'])
+@login_required
+def update_strain_rating(name):
+	form = RateStrain(request.form)
+	if request.method == 'GET':
+		data =request.args.get('options')
+		strain = Strain.query.filter_by(name = name).first()
+		strain.ranking = data
+		db.session.commit()
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
+	return redirect(url_for('see_collections'))
+
+@app.route('/delete/<name>', methods = ['GET', 'POST'])
+@login_required
+def delete_strain(name):
+	if request.method == 'GET':
+		strain = Strain.query.filter_by(name = name).first()
+		if strain:
+
+			db.session.delete(strain)
+			db.session.commit()
+		errors = [v for v in form.errors.values()]
+		if len(errors) > 0:
+			string_errors = " | ".join([str(er) for er in errors])
+			flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
+		return redirect(url_for('see_collections'))
+
 
 @app.route('/logout')
 @login_required
 def logout():
 	logout_user()
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
 	return redirect(url_for('login'))
-	pass
+	
 	# this route will logout the current user and redirect the user back to the /index route
 
 
@@ -438,6 +498,10 @@ def login():
 			login_user(user, form.remember_me.data)
 			return redirect(request.args.get('next') or url_for('index'))
 		flash('Invalid username or password.')
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
 	return render_template('login.html', form = form)
 	# This page will render an HTML template that will allow the user to login with their email and password
 	# If the form is validated and the user has already registered for an account to use this app, then they will be redirected to the /index page
@@ -455,6 +519,10 @@ def register():
 		db.session.commit()
 		flash('You can now log in!')
 		return redirect(url_for('login')) # redirect to log in page so that they can sign in
+	errors = [v for v in form.errors.values()]
+	if len(errors) > 0:
+		string_errors = " | ".join([str(er) for er in errors])
+		flash("!!!! ERRORS IN FORM SUBMISSION - " + string_errors)
 	return render_template('register.html', form = form)
 	# This page will render and HTML template that will allow the user to register for an account to use this application
 	# If the template is validated, then it will call the get_or_create_user helper function that will allow the user to register for an ccount
