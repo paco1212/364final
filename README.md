@@ -1,6 +1,4 @@
 # 364final
-Python Flask Application where user can search for medical marijuana strains and add them save medical marijuana strains in their account.
-# 364final
 Python Flask Application where user can search for medical marijuana strains and add them save medical marijuana strains in their account. A user has to register before they are able to log in or see anyt of the routes outside of **/register** and **/login**. Once the person creates and account and logs in, they are redirected to the **/** route where the user can select to seaerch for medical marijuana strains by the name of a strain, a flavor, or a strain effect. The app dispalys first 5 responses, or less, and then the user has the ability to save it to their "Medical Marijuana WishList" or their "Tried" strains. User's can also rank the strains on a scale of 1-5 and update the ranking as they please
 
 ## Import Requirements
